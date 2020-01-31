@@ -10,6 +10,9 @@ class CPU:
         self.ram = [0] * 256
         self.reg = [0] * 8
         self.pc = 0
+        self.e = 0
+        self.l = 0
+        self.g = 0
 
     def load(self):
         """Load a program into memory."""
@@ -66,6 +69,25 @@ class CPU:
         if op == "ADD":
             self.reg[reg_a] += self.reg[reg_b]
 
+        elif op == 0b10100111:
+            if reg_a == reg_b:
+                self.e = 1
+                self.l = 0
+                self.g = 0
+                # print(["E: ", self.e, "L: ", self.l, "G: ", self.g])
+            elif reg_a < reg_b:
+                self.e = 0
+                self.l = 1
+                self.g = 0
+                # print(["E: ", self.e, "L: ", self.l, "G: ", self.g])
+            elif reg_a > reg_b:
+                self.e = 0
+                self.l = 0
+                self.g = 1
+                # print(["E: ", self.e, "L: ", self.l, "G: ", self.g])
+            else:
+                print("Something went wrong!")
+
         else:
             raise Exception("Unsupported ALU operation")
 
@@ -101,27 +123,57 @@ class CPU:
     def run(self):
         """Run the CPU."""
 
-        operand_a = self.ram_read(self.pc+1)
-        operand_b = self.ram_read(self.pc+2)
-
         loop = True
 
         while loop:
 
+            operand_a = self.ram_read(self.pc+1) # Reads the next bucket in RAM
+            operand_b = self.ram_read(self.pc+2) # Reads the next bucket in RAM +2
+
             ir = self.ram[self.pc]
-            print("IR", ir)
+            # print(ir)
             
+            # LDI
             if ir == 0b10000010:
                 self.reg[operand_a] = operand_b
                 self.pc += 3
 
+            # PRN
             elif ir == 0b01000111:
-                print(self.reg[0])
+                print(self.reg[operand_a])
                 self.pc += 2
 
+            # HLT
             elif ir == 0b00000001:
                 sys.exit()
                 loop = False
+                self.pc += 1
+
+            # CMP
+            elif ir == 0b10100111:
+                self.alu(ir, self.reg[operand_a], self.reg[operand_b])
+                self.pc += 3
+
+            # JMP
+            # INSTRUCTION:  SET THE PC TO THE ADDRESS STORED IN THE GIVEN REGISTER
+            elif ir == 0b01010100:
+                self.pc = self.ram[operand_a]
+
+            # JEQ
+            # INSTRUCTION:  JUMP TO ADDRESS (RAM) STORED IN GIVEN REGISTER (R2)
+            elif ir == 0b01010101:
+                if self.e == 1:
+                    self.pc = self.reg[operand_a]
+                else:
+                    self.pc += 2
+
+            # JNE
+            # INSTRUCTION:  IF 'E' IS 0, JUMP TO ADDRESS IN THE GIVEN REGISTER ()
+            elif ir == 0b01010110:
+                if self.e == 0:
+                    self.pc = self.reg[operand_a]
+                else: 
+                    self.pc += 2
 
             else:
                 self.pc += 1
